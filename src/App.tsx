@@ -13,7 +13,8 @@ import {
     Globe,
     Phone,
     UserCheck,
-    XCircle
+    XCircle,
+    CreditCard
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -24,7 +25,8 @@ import {
     extendMerchantTrial,
     updateMerchantPlan,
     fetchPlans,
-    updatePlan
+    updatePlan,
+    cancelSubscription
 } from './lib/api'
 
 function App() {
@@ -87,6 +89,11 @@ function App() {
             queryClient.invalidateQueries({ queryKey: ['plans'] })
             setEditingPlan(null)
         }
+    })
+
+    const cancelSubscriptionMutation = useMutation({
+        mutationFn: ({ domain }: { domain: string }) => cancelSubscription(domain),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['merchants'] })
     })
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -289,16 +296,30 @@ function App() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5">
-                                                    {merchant.isConnected ? (
-                                                        <div className="inline-flex items-center gap-1.5 text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 text-xs font-bold uppercase">
-                                                            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                                                            WhatsApp Linked
-                                                        </div>
-                                                    ) : (
-                                                        <div className="inline-flex items-center gap-1.5 text-slate-500 bg-slate-800/50 px-2.5 py-1 rounded-full border border-slate-700 text-xs font-bold uppercase">
-                                                            Offline
-                                                        </div>
-                                                    )}
+                                                    <div className="flex flex-col gap-2 items-start">
+                                                        {merchant.isConnected ? (
+                                                            <div className="inline-flex items-center gap-1.5 text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 text-[10px] font-bold uppercase whitespace-nowrap">
+                                                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                                                                WhatsApp Linked
+                                                            </div>
+                                                        ) : (
+                                                            <div className="inline-flex items-center gap-1.5 text-slate-500 bg-slate-800/50 px-2.5 py-1 rounded-full border border-slate-700 text-[10px] font-bold uppercase whitespace-nowrap">
+                                                                Offline
+                                                            </div>
+                                                        )}
+
+                                                        {merchant.billingStatus === 'active' ? (
+                                                            <div className="inline-flex items-center gap-1.5 text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20 text-[10px] font-bold uppercase whitespace-nowrap">
+                                                                <CreditCard size={10} />
+                                                                Paid / Active
+                                                            </div>
+                                                        ) : (
+                                                            <div className="inline-flex items-center gap-1.5 text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20 text-[10px] font-bold uppercase whitespace-nowrap">
+                                                                <XCircle size={10} />
+                                                                Unpaid / Inactive
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <div className="flex items-center justify-end gap-2">
@@ -325,6 +346,17 @@ function App() {
                                                             title="Switch Plan"
                                                         >
                                                             ROT
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (window.confirm(`Are you sure you want to cancel the subscription for ${merchant.shopDomain}? This will force them to re-activate a plan.`)) {
+                                                                    cancelSubscriptionMutation.mutate({ domain: merchant.shopDomain });
+                                                                }
+                                                            }}
+                                                            className="p-2 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all"
+                                                            title="Cancel Subscription"
+                                                        >
+                                                            <CreditCard size={16} />
                                                         </button>
                                                     </div>
                                                 </td>

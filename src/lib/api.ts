@@ -50,6 +50,11 @@ export const extendMerchantTrial = async (shopDomain: string, extraMessages: num
     return data;
 };
 
+export const cancelSubscription = async (shopDomain: string) => {
+    const { data } = await api.post(`/admin/merchants/cancel-subscription`, { shopDomain });
+    return data;
+};
+
 // --- Plans API ---
 export const fetchPlans = async () => {
     const { data } = await api.get('/plans');
