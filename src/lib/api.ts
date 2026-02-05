@@ -35,6 +35,11 @@ export const fetchGlobalActivity = async () => {
     return data;
 };
 
+export const fetchStats = async () => {
+    const { data } = await api.get('/admin/stats');
+    return data;
+};
+
 export const updateMerchantPlan = async (shopDomain: string, plan: string) => {
     const { data } = await api.post(`/admin/merchants/plan`, { shopDomain, plan });
     return data;

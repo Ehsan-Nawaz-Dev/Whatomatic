@@ -14,7 +14,11 @@ import {
     Phone,
     UserCheck,
     XCircle,
-    CreditCard
+    CreditCard,
+    LayoutDashboard,
+    TrendingUp,
+    DollarSign,
+    PieChart
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -26,7 +30,8 @@ import {
     updateMerchantPlan,
     fetchPlans,
     updatePlan,
-    cancelSubscription
+    cancelSubscription,
+    fetchStats
 } from './lib/api'
 
 function App() {
@@ -37,7 +42,7 @@ function App() {
     const [loginError, setLoginError] = useState('')
 
     // New State for Plans
-    const [currentView, setCurrentView] = useState('merchants')
+    const [currentView, setCurrentView] = useState('overview')
     const [editingPlan, setEditingPlan] = useState<any>(null)
 
     const queryClient = useQueryClient()
@@ -50,14 +55,14 @@ function App() {
     const { data: merchants, isLoading: loadingMerchants, refetch: refetchMerchants } = useQuery({
         queryKey: ['merchants'],
         queryFn: fetchMerchants,
-        enabled: isLoggedIn && currentView === 'merchants',
+        enabled: isLoggedIn && currentView === 'overview',
         refetchInterval: 30000
     })
 
     const { data: activityLogs } = useQuery({
         queryKey: ['activity'],
         queryFn: fetchGlobalActivity,
-        enabled: isLoggedIn && currentView === 'merchants', // Only fetch activity on dashboard
+        enabled: isLoggedIn && currentView === 'overview', // Only fetch activity on dashboard
         refetchInterval: 10000
     })
 
@@ -65,6 +70,12 @@ function App() {
         queryKey: ['plans'],
         queryFn: fetchPlans,
         enabled: isLoggedIn && currentView === 'plans'
+    })
+
+    const { data: stats, isLoading: loadingStats } = useQuery({
+        queryKey: ['stats'],
+        queryFn: fetchStats,
+        enabled: isLoggedIn && currentView === 'analytics'
     })
 
     // Mutations
@@ -179,7 +190,7 @@ function App() {
     return (
         <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-blue-500/30">
             {/* Sidebar */}
-            <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0f172a] border-r border-slate-800/50 p-6 hidden lg:block">
+            <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0f172a] border-r border-slate-800/50 p-6 hidden lg:flex flex-col">
                 <div className="flex items-center gap-3 mb-10 px-2">
                     <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
                         <Activity size={18} className="text-white" />
@@ -189,13 +200,20 @@ function App() {
                     </span>
                 </div>
 
-                <nav className="space-y-2">
+                <nav className="space-y-2 flex-1">
                     <button
-                        onClick={() => setCurrentView('merchants')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'merchants' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                        onClick={() => setCurrentView('overview')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'overview' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
                     >
-                        <Users size={18} className="shrink-0" />
-                        Merchants
+                        <LayoutDashboard size={18} className="shrink-0" />
+                        Store Overview
+                    </button>
+                    <button
+                        onClick={() => setCurrentView('analytics')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'analytics' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                    >
+                        <TrendingUp size={18} className="shrink-0" />
+                        Analytics
                     </button>
                     <button
                         onClick={() => setCurrentView('plans')}
@@ -204,7 +222,10 @@ function App() {
                         <Package size={18} className="shrink-0" />
                         Plans & Pricing
                     </button>
-                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all text-left mt-auto" onClick={handleLogout}>
+                </nav>
+
+                <nav className="mt-auto pt-4 border-t border-slate-800/50">
+                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all text-left" onClick={handleLogout}>
                         <LogOut size={18} className="shrink-0" />
                         Logout
                     </button>
@@ -213,7 +234,7 @@ function App() {
 
             {/* Main Content */}
             <main className="lg:pl-64 p-8">
-                {currentView === 'merchants' && (
+                {currentView === 'overview' && (
                     <>
                         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                             <div>
@@ -280,17 +301,17 @@ function App() {
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <div className="flex flex-col gap-2">
-                                                        <div className="flex items-center gap-2 font-mono text-xs">
+                                                        <div className="flex items-center gap-2 font-mono text-[10px]">
                                                             <Package size={14} className="text-amber-500" />
-                                                            <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20">{merchant.plan?.toUpperCase()}</span>
+                                                            <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 font-bold tracking-widest">{merchant.plan?.toUpperCase() || 'FREE'}</span>
                                                         </div>
                                                         <div className="space-y-1">
                                                             <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-tight">
-                                                                <span>Trial Messages</span>
-                                                                <span>{merchant.trialUsage || 0} / {merchant.trialLimit || 10}</span>
+                                                                <span>Messages Left</span>
+                                                                <span>{(merchant.limit || 10) - (merchant.usage || 0)} / {merchant.limit || 10}</span>
                                                             </div>
                                                             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                                                                <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.min((merchant.trialUsage / (merchant.trialLimit || 10)) * 100, 100)}%` }} />
+                                                                <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.max(0, Math.min((((merchant.limit || 10) - (merchant.usage || 0)) / (merchant.limit || 10)) * 100, 100))}%` }} />
                                                             </div>
                                                         </div>
                                                     </div>
@@ -405,6 +426,87 @@ function App() {
                     </>
                 )}
 
+                {currentView === 'analytics' && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Business Intelligence</h1>
+                            <p className="text-slate-400 text-sm italic">Subscription metrics, revenue tracking, and growth analytics.</p>
+                        </div>
+
+                        {loadingStats ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                                <RefreshCw className="animate-spin mb-4" size={32} />
+                                <p>Calculating metrics...</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-all">
+                                            <UserCheck size={64} className="text-blue-500" />
+                                        </div>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Total Subscribed Users</p>
+                                        <h2 className="text-5xl font-bold text-white tracking-tighter">{stats?.totalSubscribers || 0}</h2>
+                                        <div className="mt-4 flex items-center gap-2 text-green-400 text-xs font-bold">
+                                            <TrendingUp size={14} />
+                                            <span>Active Paying Hubs</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-all">
+                                            <DollarSign size={64} className="text-emerald-500" />
+                                        </div>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Monthly Recurring Revenue</p>
+                                        <h2 className="text-5xl font-bold text-emerald-400 tracking-tighter">${stats?.totalMonthlyEarnings || 0}</h2>
+                                        <div className="mt-4 flex items-center gap-2 text-slate-500 text-xs font-bold">
+                                            <CreditCard size={14} />
+                                            <span>Projected USD / Month</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-all">
+                                            <PieChart size={64} className="text-amber-500" />
+                                        </div>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Plan Diversity</p>
+                                        <h2 className="text-5xl font-bold text-white tracking-tighter">{Object.keys(stats?.planBreakdown || {}).length}</h2>
+                                        <div className="mt-4 flex items-center gap-2 text-amber-400 text-xs font-bold">
+                                            <Package size={14} />
+                                            <span>Active Plan Types</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Plan Breakdown Table */}
+                                <div className="bg-[#0f172a] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+                                    <div className="px-8 py-6 border-b border-slate-800 flex justify-between items-center">
+                                        <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+                                            <Users size={20} className="text-blue-500" />
+                                            Subscriber Breakdown
+                                        </h3>
+                                    </div>
+                                    <div className="p-8">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {Object.entries(stats?.planBreakdown || {}).map(([plan, count]: any) => (
+                                                <div key={plan} className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800 flex flex-col items-center">
+                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{plan}</span>
+                                                    <span className="text-3xl font-bold text-white">{count}</span>
+                                                    <span className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">Active Hubs</span>
+                                                </div>
+                                            ))}
+                                            {Object.keys(stats?.planBreakdown || {}).length === 0 && (
+                                                <div className="col-span-4 text-center py-10 text-slate-500 italic">No active subscriptions detected.</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {currentView === 'plans' && (
                     <div className="space-y-8">
                         <div>
@@ -513,7 +615,7 @@ function App() {
                     </div>
                 )}
             </main>
-        </div>
+        </div >
     )
 }
 
