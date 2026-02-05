@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react'
 import {
     Users,
-    MessageSquare,
     Activity,
-    Settings,
     Search,
     RefreshCw,
-    CheckCircle2,
-    XCircle,
-    Clock,
     Ban,
     PlusCircle,
     Package,
@@ -17,7 +12,8 @@ import {
     User,
     Globe,
     Phone,
-    UserCheck
+    UserCheck,
+    XCircle
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -26,7 +22,9 @@ import {
     adminLogin,
     toggleMerchantBlock,
     extendMerchantTrial,
-    updateMerchantPlan
+    updateMerchantPlan,
+    fetchPlans,
+    updatePlan
 } from './lib/api'
 
 function App() {
@@ -35,6 +33,10 @@ function App() {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [loginError, setLoginError] = useState('')
+
+    // New State for Plans
+    const [currentView, setCurrentView] = useState('merchants')
+    const [editingPlan, setEditingPlan] = useState<any>(null)
 
     const queryClient = useQueryClient()
 
@@ -46,15 +48,21 @@ function App() {
     const { data: merchants, isLoading: loadingMerchants, refetch: refetchMerchants } = useQuery({
         queryKey: ['merchants'],
         queryFn: fetchMerchants,
-        enabled: isLoggedIn,
+        enabled: isLoggedIn && currentView === 'merchants',
         refetchInterval: 30000
     })
 
     const { data: activityLogs } = useQuery({
         queryKey: ['activity'],
         queryFn: fetchGlobalActivity,
-        enabled: isLoggedIn,
+        enabled: isLoggedIn && currentView === 'merchants', // Only fetch activity on dashboard
         refetchInterval: 10000
+    })
+
+    const { data: plans, isLoading: loadingPlans } = useQuery({
+        queryKey: ['plans'],
+        queryFn: fetchPlans,
+        enabled: isLoggedIn && currentView === 'plans'
     })
 
     // Mutations
@@ -71,6 +79,14 @@ function App() {
     const planMutation = useMutation({
         mutationFn: ({ domain, plan }: { domain: string, plan: string }) => updateMerchantPlan(domain, plan),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['merchants'] })
+    })
+
+    const updatePlanMutation = useMutation({
+        mutationFn: ({ id, updates }: { id: string, updates: any }) => updatePlan(id, updates),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['plans'] })
+            setEditingPlan(null)
+        }
     })
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -166,10 +182,20 @@ function App() {
                     </span>
                 </div>
 
-                <nav className="space-y-1">
-                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-600/10 text-blue-400 font-medium transition-all border border-blue-500/20 text-left">
-                        <Activity size={18} className="shrink-0" />
-                        Overview
+                <nav className="space-y-2">
+                    <button
+                        onClick={() => setCurrentView('merchants')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'merchants' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                    >
+                        <Users size={18} className="shrink-0" />
+                        Merchants
+                    </button>
+                    <button
+                        onClick={() => setCurrentView('plans')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'plans' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                    >
+                        <Package size={18} className="shrink-0" />
+                        Plans & Pricing
                     </button>
                     <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all text-left mt-auto" onClick={handleLogout}>
                         <LogOut size={18} className="shrink-0" />
@@ -180,174 +206,280 @@ function App() {
 
             {/* Main Content */}
             <main className="lg:pl-64 p-8">
-                <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Merchant Central</h1>
-                        <p className="text-slate-400 text-sm italic">Manage global store properties, blocks, and trials.</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Shop, Contact, or Domain..."
-                                className="bg-[#0f172a] border border-slate-800 rounded-xl px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all w-64"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <button className="p-2 bg-[#0f172a] border border-slate-800 rounded-xl hover:bg-slate-800 transition-all text-slate-400 hover:text-white" onClick={() => refetchMerchants()}>
-                            <RefreshCw size={18} />
-                        </button>
-                    </div>
-                </header>
-
-                {/* List */}
-                <div className="bg-[#0f172a] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="text-slate-500 border-b border-slate-800 bg-[#1e293b]/30">
-                                <tr>
-                                    <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Store Profile</th>
-                                    <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Contact Details</th>
-                                    <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Package / Usage</th>
-                                    <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Status</th>
-                                    <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px] text-right">Administrative Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/50">
-                                {loadingMerchants ? (
-                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">Wait, fetching merchant data...</td></tr>
-                                ) : filteredMerchants?.map((merchant: any) => (
-                                    <tr key={merchant._id} className={`hover:bg-slate-800/40 transition-all transition-colors duration-200 ${!merchant.isActive ? 'bg-red-500/5 opacity-80' : ''}`}>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-slate-100 font-bold text-base">{merchant.storeName || 'Unnamed Hub'}</span>
-                                                    {!merchant.isActive && <Ban size={14} className="text-red-500" />}
-                                                </div>
-                                                <a href={`https://${merchant.shopDomain}`} target="_blank" className="text-blue-400 text-xs hover:underline flex items-center gap-1 mt-0.5">
-                                                    <Globe size={10} /> {merchant.shopDomain}
-                                                </a>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2 text-slate-300">
-                                                    <User size={14} className="text-slate-500 shrink-0" />
-                                                    <span className="font-medium">{merchant.contactName || 'N/A'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-slate-400 text-xs">
-                                                    <Phone size={14} className="text-slate-500 shrink-0" />
-                                                    <span>{merchant.phone || 'No phone'}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col gap-2">
-                                                <div className="flex items-center gap-2 font-mono text-xs">
-                                                    <Package size={14} className="text-amber-500" />
-                                                    <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20">{merchant.plan?.toUpperCase()}</span>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-tight">
-                                                        <span>Trial Messages</span>
-                                                        <span>{merchant.trialUsage || 0} / {merchant.trialLimit || 10}</span>
-                                                    </div>
-                                                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                                                        <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.min((merchant.trialUsage / (merchant.trialLimit || 10)) * 100, 100)}%` }} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            {merchant.isConnected ? (
-                                                <div className="inline-flex items-center gap-1.5 text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 text-xs font-bold uppercase">
-                                                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                                                    WhatsApp Linked
-                                                </div>
-                                            ) : (
-                                                <div className="inline-flex items-center gap-1.5 text-slate-500 bg-slate-800/50 px-2.5 py-1 rounded-full border border-slate-700 text-xs font-bold uppercase">
-                                                    Offline
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* Block/Unblock */}
-                                                <button
-                                                    onClick={() => blockMutation.mutate({ domain: merchant.shopDomain, active: !merchant.isActive })}
-                                                    className={`p-2 rounded-xl border transition-all ${merchant.isActive
-                                                            ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white'
-                                                            : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white'
-                                                        }`}
-                                                    title={merchant.isActive ? 'Block Store' : 'Unblock Store'}
-                                                >
-                                                    {merchant.isActive ? <Ban size={16} /> : <UserCheck size={16} />}
-                                                </button>
-
-                                                {/* Extend Trial */}
-                                                <button
-                                                    onClick={() => extendMutation.mutate({ domain: merchant.shopDomain, amount: 50 })}
-                                                    className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
-                                                    title="Extend Trial +50"
-                                                >
-                                                    <PlusCircle size={16} />
-                                                </button>
-
-                                                {/* Change Plan */}
-                                                <button
-                                                    onClick={() => planMutation.mutate({ domain: merchant.shopDomain, plan: merchant.plan === 'pro' ? 'free' : 'pro' })}
-                                                    className="p-2 bg-[#1e293b] border border-slate-700 text-slate-400 rounded-xl hover:text-white hover:border-slate-500 transition-all font-bold text-[10px]"
-                                                    title="Switch Plan"
-                                                >
-                                                    ROT
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Global Monitor Area */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-all">
-                            <Activity size={48} />
-                        </div>
-                        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                            <Activity size={18} className="text-blue-400" />
-                            Live Network Pulse
-                        </h3>
-                        <div className="space-y-4 max-h-[300px] overflow-y-auto scrollbar-hide">
-                            {activityLogs?.map((log: any, i: number) => (
-                                <div key={i} className="flex gap-3 text-xs border-l-2 border-slate-800 pl-4 py-1">
-                                    <span className="text-slate-500 font-mono shrink-0">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    <span className="text-blue-400 font-bold shrink-0">{log.customerName || 'Cust'}</span>
-                                    <span className="text-slate-400 truncate italic">"{log.message}"</span>
+                {currentView === 'merchants' && (
+                    <>
+                        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                            <div>
+                                <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Merchant Central</h1>
+                                <p className="text-slate-400 text-sm italic">Manage global store properties, blocks, and trials.</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Shop, Contact, or Domain..."
+                                        className="bg-[#0f172a] border border-slate-800 rounded-xl px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all w-64"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                                <button className="p-2 bg-[#0f172a] border border-slate-800 rounded-xl hover:bg-slate-800 transition-all text-slate-400 hover:text-white" onClick={() => refetchMerchants()}>
+                                    <RefreshCw size={18} />
+                                </button>
+                            </div>
+                        </header>
 
-                    <div className="bg-gradient-to-br from-indigo-500/10 to-blue-500/10 border border-blue-500/20 rounded-3xl p-8 flex flex-col justify-center">
-                        <h4 className="text-blue-300 font-bold text-lg mb-2 tracking-tight">System Status: Shield Active</h4>
-                        <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                            All traffic is currently monitored. You can manually override merchant settings, block access, or rotate service packages from this panel.
-                        </p>
-                        <div className="flex gap-4">
-                            <div className="px-4 py-2 bg-blue-500/20 rounded-xl border border-blue-500/30 text-blue-300 text-xs font-bold">
-                                AUTH SECURED
-                            </div>
-                            <div className="px-4 py-2 bg-green-500/20 rounded-xl border border-green-500/30 text-green-300 text-xs font-bold">
-                                ALL SERVICES UP
+                        {/* Merchants List */}
+                        <div className="bg-[#0f172a] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="text-slate-500 border-b border-slate-800 bg-[#1e293b]/30">
+                                        <tr>
+                                            <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Store Profile</th>
+                                            <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Contact Details</th>
+                                            <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Package / Usage</th>
+                                            <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Status</th>
+                                            <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px] text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/50">
+                                        {loadingMerchants ? (
+                                            <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">Wait, fetching merchant data...</td></tr>
+                                        ) : filteredMerchants?.map((merchant: any) => (
+                                            <tr key={merchant._id} className={`hover:bg-slate-800/40 transition-all transition-colors duration-200 ${!merchant.isActive ? 'bg-red-500/5 opacity-80' : ''}`}>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-slate-100 font-bold text-base">{merchant.storeName || 'Unnamed Hub'}</span>
+                                                            {!merchant.isActive && <Ban size={14} className="text-red-500" />}
+                                                        </div>
+                                                        <a href={`https://${merchant.shopDomain}`} target="_blank" className="text-blue-400 text-xs hover:underline flex items-center gap-1 mt-0.5">
+                                                            <Globe size={10} /> {merchant.shopDomain}
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2 text-slate-300">
+                                                            <User size={14} className="text-slate-500 shrink-0" />
+                                                            <span className="font-medium">{merchant.contactName || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-slate-400 text-xs">
+                                                            <Phone size={14} className="text-slate-500 shrink-0" />
+                                                            <span>{merchant.phone || 'No phone'}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-2 font-mono text-xs">
+                                                            <Package size={14} className="text-amber-500" />
+                                                            <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20">{merchant.plan?.toUpperCase()}</span>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-tight">
+                                                                <span>Trial Messages</span>
+                                                                <span>{merchant.trialUsage || 0} / {merchant.trialLimit || 10}</span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                                                <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.min((merchant.trialUsage / (merchant.trialLimit || 10)) * 100, 100)}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    {merchant.isConnected ? (
+                                                        <div className="inline-flex items-center gap-1.5 text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 text-xs font-bold uppercase">
+                                                            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                                                            WhatsApp Linked
+                                                        </div>
+                                                    ) : (
+                                                        <div className="inline-flex items-center gap-1.5 text-slate-500 bg-slate-800/50 px-2.5 py-1 rounded-full border border-slate-700 text-xs font-bold uppercase">
+                                                            Offline
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => blockMutation.mutate({ domain: merchant.shopDomain, active: !merchant.isActive })}
+                                                            className={`p-2 rounded-xl border transition-all ${merchant.isActive
+                                                                ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white'
+                                                                : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white'
+                                                                }`}
+                                                            title={merchant.isActive ? 'Block Store' : 'Unblock Store'}
+                                                        >
+                                                            {merchant.isActive ? <Ban size={16} /> : <UserCheck size={16} />}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => extendMutation.mutate({ domain: merchant.shopDomain, amount: 50 })}
+                                                            className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
+                                                            title="Extend Trial +50"
+                                                        >
+                                                            <PlusCircle size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => planMutation.mutate({ domain: merchant.shopDomain, plan: merchant.plan === 'pro' ? 'free' : 'pro' })}
+                                                            className="p-2 bg-[#1e293b] border border-slate-700 text-slate-400 rounded-xl hover:text-white hover:border-slate-500 transition-all font-bold text-[10px]"
+                                                            title="Switch Plan"
+                                                        >
+                                                            ROT
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+
+                        {/* Global Monitor Area */}
+                        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-all">
+                                    <Activity size={48} />
+                                </div>
+                                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                                    <Activity size={18} className="text-blue-400" />
+                                    Live Network Pulse
+                                </h3>
+                                <div className="space-y-4 max-h-[300px] overflow-y-auto scrollbar-hide">
+                                    {activityLogs?.map((log: any, i: number) => (
+                                        <div key={i} className="flex gap-3 text-xs border-l-2 border-slate-800 pl-4 py-1">
+                                            <span className="text-slate-500 font-mono shrink-0">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span className="text-blue-400 font-bold shrink-0">{log.customerName || 'Cust'}</span>
+                                            <span className="text-slate-400 truncate italic">"{log.message}"</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-indigo-500/10 to-blue-500/10 border border-blue-500/20 rounded-3xl p-8 flex flex-col justify-center">
+                                <h4 className="text-blue-300 font-bold text-lg mb-2 tracking-tight">System Status: Shield Active</h4>
+                                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                                    All traffic is currently monitored. You can manually override merchant settings, block access, or rotate service packages from this panel.
+                                </p>
+                                <div className="flex gap-4">
+                                    <div className="px-4 py-2 bg-blue-500/20 rounded-xl border border-blue-500/30 text-blue-300 text-xs font-bold">
+                                        AUTH SECURED
+                                    </div>
+                                    <div className="px-4 py-2 bg-green-500/20 rounded-xl border border-green-500/30 text-green-300 text-xs font-bold">
+                                        ALL SERVICES UP
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {currentView === 'plans' && (
+                    <div className="space-y-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Pricing Plans</h1>
+                            <p className="text-slate-400 text-sm italic">Dynamic pricing control. Updates reflect immediately in the app.</p>
+                        </div>
+
+                        {loadingPlans ? (
+                            <div>Loading Plans...</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {plans?.map((plan: any) => (
+                                    <div key={plan.id} className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 relative group hover:border-blue-500/30 transition-all">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400">
+                                                <Package size={24} />
+                                            </div>
+                                            <button
+                                                onClick={() => setEditingPlan(plan)}
+                                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-full text-xs font-bold text-slate-300 transition-all"
+                                            >
+                                                Edit
+                                            </button>
+                                        </div>
+
+                                        <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
+                                        <div className="flex items-baseline gap-1 mb-4">
+                                            <span className="text-2xl font-bold text-blue-400">${plan.price}</span>
+                                            <span className="text-slate-500 text-sm">/mo</span>
+                                        </div>
+
+                                        <div className="space-y-3 pt-4 border-t border-slate-800/50">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Msg Limit</span>
+                                                <span className="text-slate-300 font-mono font-bold">{plan.messageLimit}</span>
+                                            </div>
+                                            <div className="text-xs text-slate-500">
+                                                {plan.features?.length} features configured
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Edit Plan Modal Overlay */}
+                        {editingPlan && (
+                            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                <div className="bg-[#0f172a] border border-slate-700 w-full max-w-lg rounded-3xl p-8 shadow-2xl relative">
+                                    <button onClick={() => setEditingPlan(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><XCircle /></button>
+
+                                    <h2 className="text-2xl font-bold text-white mb-6">Edit {editingPlan.name} Plan</h2>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase">Plan Name</label>
+                                            <input
+                                                className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1"
+                                                value={editingPlan.name}
+                                                onChange={e => setEditingPlan({ ...editingPlan, name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase">Price ($)</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1"
+                                                    value={editingPlan.price}
+                                                    onChange={e => setEditingPlan({ ...editingPlan, price: parseFloat(e.target.value) })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase">Msg Limit</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1"
+                                                    value={editingPlan.messageLimit}
+                                                    onChange={e => setEditingPlan({ ...editingPlan, messageLimit: parseInt(e.target.value) })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase">Features (Comma separated)</label>
+                                            <textarea
+                                                className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 h-32 text-sm"
+                                                value={editingPlan.features?.join('\n')}
+                                                onChange={e => setEditingPlan({ ...editingPlan, features: e.target.value.split('\n') })}
+                                            />
+                                            <p className="text-xs text-slate-500 mt-1">Put each feature on a new line</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 mt-8">
+                                        <button onClick={() => setEditingPlan(null)} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-800">Cancel</button>
+                                        <button
+                                            onClick={() => updatePlanMutation.mutate({ id: editingPlan.id, updates: editingPlan })}
+                                            className="px-6 py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20"
+                                        >
+                                            {updatePlanMutation.isPending ? 'Saving...' : 'Save Changes'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
+                )}
             </main>
         </div>
     )

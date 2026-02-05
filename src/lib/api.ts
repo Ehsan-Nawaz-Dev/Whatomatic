@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Switch between local admin backend (5001) and production backend
 const IS_PRODUCTION = true;
-const PROD_URL = "https://backend-wfmy.onrender.com/api";
+const PROD_URL = "https://api.whatomatic.com/api";
 const LOCAL_URL = "http://localhost:5000/api";
 
 const API_BASE_URL = IS_PRODUCTION ? PROD_URL : LOCAL_URL;
@@ -47,6 +47,22 @@ export const toggleMerchantBlock = async (shopDomain: string, isActive: boolean)
 
 export const extendMerchantTrial = async (shopDomain: string, extraMessages: number) => {
     const { data } = await api.post(`/admin/merchants/extend-trial`, { shopDomain, extraMessages });
+    return data;
+};
+
+// --- Plans API ---
+export const fetchPlans = async () => {
+    const { data } = await api.get('/plans');
+    return data;
+};
+
+export const updatePlan = async (id: string, updates: any) => {
+    const { data } = await api.put(`/plans/${id}`, updates);
+    return data;
+};
+
+export const createPlan = async (plan: any) => {
+    const { data } = await api.post('/plans', plan);
     return data;
 };
 
