@@ -18,7 +18,8 @@ import {
     LayoutDashboard,
     TrendingUp,
     DollarSign,
-    PieChart
+    PieChart,
+    Trash2
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -31,7 +32,8 @@ import {
     fetchPlans,
     updatePlan,
     cancelSubscription,
-    fetchStats
+    fetchStats,
+    deleteStore
 } from './lib/api'
 
 function App() {
@@ -105,6 +107,17 @@ function App() {
     const cancelSubscriptionMutation = useMutation({
         mutationFn: ({ domain }: { domain: string }) => cancelSubscription(domain),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['merchants'] })
+    })
+
+    const deleteStoreMutation = useMutation({
+        mutationFn: ({ domain }: { domain: string }) => deleteStore(domain),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['merchants'] })
+            alert('Store and all associated data have been deleted successfully.')
+        },
+        onError: () => {
+            alert('Failed to delete store. Please try again.')
+        }
     })
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -378,6 +391,17 @@ function App() {
                                                             title="Cancel Subscription"
                                                         >
                                                             <CreditCard size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (window.confirm(`⚠️ NUCLEAR ACTION: Are you sure you want to PERMANENTLY DELETE all data for ${merchant.shopDomain}? This cannot be undone.`)) {
+                                                                    deleteStoreMutation.mutate({ domain: merchant.shopDomain });
+                                                                }
+                                                            }}
+                                                            className="p-2 bg-red-600/10 border border-red-600/20 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+                                                            title="Delete Store Permanently"
+                                                        >
+                                                            <Trash2 size={16} />
                                                         </button>
                                                     </div>
                                                 </td>

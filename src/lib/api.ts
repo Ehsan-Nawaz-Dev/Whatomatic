@@ -60,6 +60,11 @@ export const cancelSubscription = async (shopDomain: string) => {
     return data;
 };
 
+export const deleteStore = async (shopDomain: string) => {
+    const { data } = await api.delete(`/admin/merchants/${shopDomain}`);
+    return data;
+};
+
 // --- Plans API ---
 export const fetchPlans = async () => {
     const { data } = await api.get('/plans');
