@@ -81,4 +81,20 @@ export const createPlan = async (plan: any) => {
     return data;
 };
 
+// --- Broadcast API ---
+export const fetchBroadcasts = async () => {
+    const { data } = await api.get('/admin/broadcast');
+    return data;
+};
+
+export const sendBroadcast = async (payload: any) => {
+    const { data } = await api.post('/admin/broadcast', payload);
+    return data;
+};
+
+export const deleteBroadcast = async (id: string) => {
+    const { data } = await api.delete(`/admin/broadcast/${id}`);
+    return data;
+};
+
 export default api;

@@ -19,7 +19,9 @@ import {
     TrendingUp,
     DollarSign,
     PieChart,
-    Trash2
+    Trash2,
+    MessageSquare,
+    Bell
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -33,7 +35,10 @@ import {
     updatePlan,
     cancelSubscription,
     fetchStats,
-    deleteStore
+    deleteStore,
+    fetchBroadcasts,
+    sendBroadcast,
+    deleteBroadcast
 } from './lib/api'
 
 function App() {
@@ -42,6 +47,11 @@ function App() {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [loginError, setLoginError] = useState('')
+
+    // New State for Broadcast
+    const [broadcastTitle, setBroadcastTitle] = useState('')
+    const [broadcastMessage, setBroadcastMessage] = useState('')
+    const [broadcastType, setBroadcastType] = useState('info')
 
     // New State for Plans
     const [currentView, setCurrentView] = useState('overview')
@@ -80,7 +90,27 @@ function App() {
         enabled: isLoggedIn && currentView === 'analytics'
     })
 
+    const { data: broadcasts, refetch: refetchBroadcasts } = useQuery({
+        queryKey: ['broadcasts'],
+        queryFn: fetchBroadcasts,
+        enabled: isLoggedIn && currentView === 'broadcast'
+    })
+
     // Mutations
+    const sendBroadcastMutation = useMutation({
+        mutationFn: (payload: any) => sendBroadcast(payload),
+        onSuccess: () => {
+            refetchBroadcasts()
+            setBroadcastTitle('')
+            setBroadcastMessage('')
+            alert('Broadcast sent successfully!')
+        }
+    })
+
+    const deleteBroadcastMutation = useMutation({
+        mutationFn: (id: string) => deleteBroadcast(id),
+        onSuccess: () => refetchBroadcasts()
+    })
     const blockMutation = useMutation({
         mutationFn: ({ domain, active }: { domain: string, active: boolean }) => toggleMerchantBlock(domain, active),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['merchants'] })
@@ -234,6 +264,13 @@ function App() {
                     >
                         <Package size={18} className="shrink-0" />
                         Plans & Pricing
+                    </button>
+                    <button
+                        onClick={() => setCurrentView('broadcast')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'broadcast' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                    >
+                        <Bell size={18} className="shrink-0" />
+                        Broadcast Control
                     </button>
                 </nav>
 
@@ -636,6 +673,101 @@ function App() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {currentView === 'broadcast' && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Broadcast Control</h1>
+                            <p className="text-slate-400 text-sm italic">Send global notifications to all connected merchants.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Create Broadcast Form */}
+                            <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl">
+                                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                    <MessageSquare size={20} className="text-blue-500" />
+                                    New Global Announcement
+                                </h3>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Headline</label>
+                                        <input
+                                            className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            placeholder="System Update, Major Feature, etc."
+                                            value={broadcastTitle}
+                                            onChange={e => setBroadcastTitle(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Message Body</label>
+                                        <textarea
+                                            className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 h-32 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-sm"
+                                            placeholder="Enter your announcement here..."
+                                            value={broadcastMessage}
+                                            onChange={e => setBroadcastMessage(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Priority Type</label>
+                                            <select
+                                                className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 outline-none"
+                                                value={broadcastType}
+                                                onChange={e => setBroadcastType(e.target.value)}
+                                            >
+                                                <option value="info">Information (Blue)</option>
+                                                <option value="warning">Warning (Amber)</option>
+                                                <option value="success">Success (Green)</option>
+                                                <option value="error">Critical (Red)</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button
+                                                onClick={() => sendBroadcastMutation.mutate({
+                                                    title: broadcastTitle,
+                                                    message: broadcastMessage,
+                                                    type: broadcastType
+                                                })}
+                                                disabled={!broadcastTitle || !broadcastMessage || sendBroadcastMutation.isPending}
+                                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {sendBroadcastMutation.isPending ? 'Sending...' : 'Broadcast Now'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Active Broadcasts History */}
+                            <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl">
+                                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                    <Activity size={20} className="text-blue-500" />
+                                    Broadcast History
+                                </h3>
+                                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
+                                    {broadcasts?.length === 0 && <p className="text-slate-500 italic text-center py-10">No messages sent yet.</p>}
+                                    {broadcasts?.map((msg: any) => (
+                                        <div key={msg._id} className="p-5 bg-[#1e293b]/40 border border-slate-800 rounded-2xl relative group">
+                                            <button
+                                                onClick={() => { if (window.confirm('Delete this broadcast?')) deleteBroadcastMutation.mutate(msg._id) }}
+                                                className="absolute top-4 right-4 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className={`w-2 h-2 rounded-full ${msg.type === 'info' ? 'bg-blue-500' : msg.type === 'warning' ? 'bg-amber-500' : msg.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{msg.type}</span>
+                                                <span className="text-[10px] text-slate-600 font-mono ml-auto">{new Date(msg.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <h4 className="text-white font-bold mb-1">{msg.title}</h4>
+                                            <p className="text-slate-400 text-xs leading-relaxed">{msg.message}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </main>
