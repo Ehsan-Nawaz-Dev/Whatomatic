@@ -396,27 +396,29 @@ function App() {
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
                                                             onClick={() => blockMutation.mutate({ domain: merchant.shopDomain, active: !merchant.isActive })}
-                                                            className={`p-2 rounded-xl border transition-all ${merchant.isActive
+                                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all text-[10px] font-bold ${merchant.isActive
                                                                 ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white'
                                                                 : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white'
                                                                 }`}
                                                             title={merchant.isActive ? 'Block Store' : 'Unblock Store'}
                                                         >
-                                                            {merchant.isActive ? <Ban size={16} /> : <UserCheck size={16} />}
+                                                            {merchant.isActive ? <><Ban size={14} /> <span>BLOCK</span></> : <><UserCheck size={14} /> <span>UNBLOCK</span></>}
                                                         </button>
                                                         <button
                                                             onClick={() => extendMutation.mutate({ domain: merchant.shopDomain, amount: 50 })}
-                                                            className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all text-[10px] font-bold"
                                                             title="Extend Trial +50"
                                                         >
-                                                            <PlusCircle size={16} />
+                                                            <PlusCircle size={14} />
+                                                            <span>EXTEND</span>
                                                         </button>
                                                         <button
                                                             onClick={() => planMutation.mutate({ domain: merchant.shopDomain, plan: merchant.plan === 'pro' ? 'free' : 'pro' })}
-                                                            className="p-2 bg-[#1e293b] border border-slate-700 text-slate-400 rounded-xl hover:text-white hover:border-slate-500 transition-all font-bold text-[10px]"
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-[#1e293b] border border-slate-700 text-slate-400 rounded-xl hover:text-white hover:border-slate-500 transition-all font-bold text-[10px]"
                                                             title="Switch Plan"
                                                         >
-                                                            ROT
+                                                            <RefreshCw size={14} />
+                                                            <span>SWITCH</span>
                                                         </button>
                                                         <button
                                                             onClick={() => {
@@ -424,10 +426,11 @@ function App() {
                                                                     cancelSubscriptionMutation.mutate({ domain: merchant.shopDomain });
                                                                 }
                                                             }}
-                                                            className="p-2 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all"
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all text-[10px] font-bold"
                                                             title="Cancel Subscription"
                                                         >
-                                                            <CreditCard size={16} />
+                                                            <CreditCard size={14} />
+                                                            <span>CANCEL</span>
                                                         </button>
                                                         <button
                                                             onClick={() => {
@@ -435,10 +438,11 @@ function App() {
                                                                     deleteStoreMutation.mutate({ domain: merchant.shopDomain });
                                                                 }
                                                             }}
-                                                            className="p-2 bg-red-600/10 border border-red-600/20 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-red-600/10 border border-red-600/20 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all text-[10px] font-bold"
                                                             title="Delete Store Permanently"
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <Trash2 size={14} />
+                                                            <span>DELETE</span>
                                                         </button>
                                                     </div>
                                                 </td>
