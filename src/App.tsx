@@ -142,7 +142,7 @@ function App() {
     const { data: plans, isLoading: loadingPlans } = useQuery({
         queryKey: ['plans'],
         queryFn: fetchPlans,
-        enabled: isLoggedIn && currentView === 'plans'
+        enabled: isLoggedIn
     })
 
     const { data: stats, isLoading: loadingStats } = useQuery({
@@ -1032,12 +1032,22 @@ function App() {
                                     <select
                                         value={selectedNewPlan}
                                         onChange={(e) => setSelectedNewPlan(e.target.value)}
-                                        className="w-full bg-[#1e293b] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all font-medium cursor-pointer appearance-none text-sm"
+                                        className="w-full bg-[#1e293b] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all font-medium cursor-pointer appearance-none text-sm font-sans"
                                     >
-                                        <option value="free">Free Plan (50 msg/mo)</option>
-                                        <option value="starter">Starter Plan (1,250 msg/mo)</option>
-                                        <option value="growth">Growth Plan (2,500 msg/mo)</option>
-                                        <option value="professional">Professional Plan (4,250 msg/mo)</option>
+                                        {plans && plans.length > 0 ? (
+                                            plans.map((p: any) => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} Plan ({p.messageLimit?.toLocaleString() || p.limit || 0} msg/mo)
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <option value="free">Free Plan (50 msg/mo)</option>
+                                                <option value="starter">Starter Plan (1,250 msg/mo)</option>
+                                                <option value="growth">Growth Plan (2,500 msg/mo)</option>
+                                                <option value="professional">Professional Plan (4,250 msg/mo)</option>
+                                            </>
+                                        )}
                                     </select>
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
                                         ▼
