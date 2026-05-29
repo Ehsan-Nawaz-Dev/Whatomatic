@@ -73,6 +73,11 @@ function App() {
     const [passwordError, setPasswordError] = useState('')
     const [isChangingPassword, setIsChangingPassword] = useState(false)
 
+    // Switch Plan Custom Modal State
+    const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false)
+    const [switchMerchant, setSwitchMerchant] = useState<any>(null)
+    const [selectedNewPlan, setSelectedNewPlan] = useState('free')
+
     // Support Tickets query
     const { data: tickets, refetch: refetchTickets } = useQuery({
         queryKey: ['tickets'],
@@ -492,15 +497,9 @@ function App() {
                                                         </button>
                                                         <button
                                                             onClick={() => {
-                                                                const newPlan = window.prompt(`Which package do you want to switch ${merchant.storeName || merchant.shopDomain} to?\nOptions: free, starter, growth, professional`, merchant.plan || "free");
-                                                                if (newPlan !== null) {
-                                                                    const cleanedPlan = newPlan.trim().toLowerCase();
-                                                                    if (['free', 'starter', 'growth', 'professional', 'pro', 'trial'].includes(cleanedPlan)) {
-                                                                        planMutation.mutate({ domain: merchant.shopDomain, plan: cleanedPlan });
-                                                                    } else {
-                                                                        alert("Invalid plan! Please enter one of the following: free, starter, growth, professional");
-                                                                    }
-                                                                }
+                                                                setSwitchMerchant(merchant);
+                                                                setSelectedNewPlan(merchant.plan || 'free');
+                                                                setIsSwitchModalOpen(true);
                                                             }}
                                                             className="flex items-center gap-1.5 px-3 py-2 bg-[#1e293b] border border-slate-700 text-slate-400 rounded-xl hover:text-white hover:border-slate-500 transition-all font-bold text-[10px]"
                                                             title="Switch Plan"
@@ -1010,6 +1009,67 @@ function App() {
                     </div>
                 )}
             </main>
+            {isSwitchModalOpen && switchMerchant && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 shadow-2xl max-w-md w-full relative overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Decorative background glow */}
+                        <div className="absolute -top-16 -right-16 w-32 h-32 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
+                        
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-2xl">
+                                <RefreshCw size={24} className="animate-spin text-green-400" style={{ animationDuration: '4s' }} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white tracking-tight">Switch Service Package</h3>
+                                <p className="text-slate-400 text-xs italic mt-0.5">{switchMerchant.storeName || switchMerchant.shopDomain}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Select Target Package</label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedNewPlan}
+                                        onChange={(e) => setSelectedNewPlan(e.target.value)}
+                                        className="w-full bg-[#1e293b] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all font-medium cursor-pointer appearance-none text-sm"
+                                    >
+                                        <option value="free">Free Plan (50 msg/mo)</option>
+                                        <option value="starter">Starter Plan (1,250 msg/mo)</option>
+                                        <option value="growth">Growth Plan (2,500 msg/mo)</option>
+                                        <option value="professional">Professional Plan (4,250 msg/mo)</option>
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
+                                        ▼
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    onClick={() => {
+                                        setIsSwitchModalOpen(false);
+                                        setSwitchMerchant(null);
+                                    }}
+                                    className="flex-1 py-3 bg-[#1e293b] hover:bg-[#2e3b4e] text-slate-300 font-bold rounded-xl transition-all text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        planMutation.mutate({ domain: switchMerchant.shopDomain, plan: selectedNewPlan });
+                                        setIsSwitchModalOpen(false);
+                                        setSwitchMerchant(null);
+                                    }}
+                                    className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-500/25 text-xs"
+                                >
+                                    Switch Package
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     )
 }
