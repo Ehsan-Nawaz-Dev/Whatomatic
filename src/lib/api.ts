@@ -97,4 +97,20 @@ export const deleteBroadcast = async (id: string) => {
     return data;
 };
 
+// --- Support Tickets & Admin Settings ---
+export const fetchTickets = async () => {
+    const { data } = await api.get('/admin/tickets');
+    return data;
+};
+
+export const resolveTicket = async (id: string) => {
+    const { data } = await api.put(`/admin/tickets/${id}/resolve`);
+    return data;
+};
+
+export const changeAdminPassword = async (payload: any) => {
+    const { data } = await api.post('/admin/change-password', payload);
+    return data;
+};
+
 export default api;

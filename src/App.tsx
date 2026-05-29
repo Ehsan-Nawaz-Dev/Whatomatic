@@ -38,7 +38,10 @@ import {
     deleteStore,
     fetchBroadcasts,
     sendBroadcast,
-    deleteBroadcast
+    deleteBroadcast,
+    fetchTickets,
+    resolveTicket,
+    changeAdminPassword
 } from './lib/api'
 
 function App() {
@@ -58,6 +61,59 @@ function App() {
     const [editingPlan, setEditingPlan] = useState<any>(null)
 
     const queryClient = useQueryClient()
+
+    // Support Ticket Tab state
+    const [ticketTab, setTicketTab] = useState<'open' | 'closed'>('open')
+    
+    // Change Password state
+    const [currentPassword, setCurrentPassword] = useState('')
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    const [passwordSuccess, setPasswordSuccess] = useState('')
+    const [passwordError, setPasswordError] = useState('')
+    const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+    // Support Tickets query
+    const { data: tickets, refetch: refetchTickets } = useQuery({
+        queryKey: ['tickets'],
+        queryFn: fetchTickets,
+        enabled: isLoggedIn && currentView === 'support',
+        refetchInterval: 15000 // Poll every 15s for new tickets
+    })
+
+    // Resolve Ticket mutation
+    const resolveTicketMutation = useMutation({
+        mutationFn: (id: string) => resolveTicket(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tickets'] })
+        },
+        onError: (err: any) => {
+            alert(err.response?.data?.error || 'Failed to resolve ticket')
+        }
+    })
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (newPassword !== confirmPassword) {
+            setPasswordError('New passwords do not match')
+            setPasswordSuccess('')
+            return;
+        }
+        setIsChangingPassword(true)
+        setPasswordError('')
+        setPasswordSuccess('')
+        try {
+            await changeAdminPassword({ currentPassword, newPassword })
+            setPasswordSuccess('Password changed successfully!')
+            setCurrentPassword('')
+            setNewPassword('')
+            setConfirmPassword('')
+        } catch (err: any) {
+            setPasswordError(err.response?.data?.error || 'Failed to change password')
+        } finally {
+            setIsChangingPassword(false)
+        }
+    }
 
     useEffect(() => {
         const token = localStorage.getItem('admin_token')
@@ -170,11 +226,11 @@ function App() {
     if (!isLoggedIn) {
         return (
             <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
-                <div className="w-full max-w-md bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-blue-500/10 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                <div className="w-full max-w-md bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-green-500/10 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-3xl -mr-16 -mt-16 rounded-full" />
 
                     <div className="text-center mb-8 relative">
-                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
+                        <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/20">
                             <Lock className="text-white" size={28} />
                         </div>
                         <h1 className="text-2xl font-bold text-white tracking-tight">Admin Portal</h1>
@@ -214,7 +270,7 @@ function App() {
 
                         <button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-[0.98]"
+                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-[0.98]"
                         >
                             Sign In
                         </button>
@@ -231,11 +287,11 @@ function App() {
     )
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-blue-500/30">
+        <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-green-500/30">
             {/* Sidebar */}
             <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0f172a] border-r border-slate-800/50 p-6 hidden lg:flex flex-col">
                 <div className="flex items-center gap-3 mb-10 px-2">
-                    <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <div className="w-8 h-8 bg-gradient-to-tr from-green-600 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/20">
                         <Activity size={18} className="text-white" />
                     </div>
                     <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
@@ -246,31 +302,38 @@ function App() {
                 <nav className="space-y-2 flex-1">
                     <button
                         onClick={() => setCurrentView('overview')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'overview' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'overview' ? 'bg-green-600/10 text-green-400 border border-green-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
                     >
                         <LayoutDashboard size={18} className="shrink-0" />
                         Store Overview
                     </button>
                     <button
                         onClick={() => setCurrentView('analytics')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'analytics' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'analytics' ? 'bg-green-600/10 text-green-400 border border-green-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
                     >
                         <TrendingUp size={18} className="shrink-0" />
                         Analytics
                     </button>
                     <button
                         onClick={() => setCurrentView('plans')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'plans' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'plans' ? 'bg-green-600/10 text-green-400 border border-green-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
                     >
                         <Package size={18} className="shrink-0" />
                         Plans & Pricing
                     </button>
                     <button
                         onClick={() => setCurrentView('broadcast')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'broadcast' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'broadcast' ? 'bg-green-600/10 text-green-400 border border-green-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
                     >
                         <Bell size={18} className="shrink-0" />
                         Broadcast Control
+                    </button>
+                    <button
+                        onClick={() => setCurrentView('support')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all text-left ${currentView === 'support' ? 'bg-green-600/10 text-green-400 border border-green-500/20' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                    >
+                        <MessageSquare size={18} className="shrink-0" />
+                        Help & Support
                     </button>
                 </nav>
 
@@ -332,7 +395,7 @@ function App() {
                                                             <span className="text-slate-100 font-bold text-base">{merchant.storeName || 'Unnamed Hub'}</span>
                                                             {!merchant.isActive && <Ban size={14} className="text-red-500" />}
                                                         </div>
-                                                        <a href={`https://${merchant.shopDomain}`} target="_blank" className="text-blue-400 text-xs hover:underline flex items-center gap-1 mt-0.5">
+                                                        <a href={`https://${merchant.shopDomain}`} target="_blank" className="text-green-400 text-xs hover:underline flex items-center gap-1 mt-0.5">
                                                             <Globe size={10} /> {merchant.shopDomain}
                                                         </a>
                                                     </div>
@@ -361,7 +424,7 @@ function App() {
                                                                 <span>{(merchant.limit || 10) - (merchant.usage || 0)} / {merchant.limit || 10}</span>
                                                             </div>
                                                             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                                                                <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.max(0, Math.min((((merchant.limit || 10) - (merchant.usage || 0)) / (merchant.limit || 10)) * 100, 100))}%` }} />
+                                                                <div className="bg-green-500 h-full transition-all" style={{ width: `${Math.max(0, Math.min((((merchant.limit || 10) - (merchant.usage || 0)) / (merchant.limit || 10)) * 100, 100))}%` }} />
                                                             </div>
                                                         </div>
                                                     </div>
@@ -380,7 +443,7 @@ function App() {
                                                         )}
 
                                                         {merchant.billingStatus === 'active' ? (
-                                                            <div className="inline-flex items-center gap-1.5 text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20 text-[10px] font-bold uppercase whitespace-nowrap">
+                                                            <div className="inline-flex items-center gap-1.5 text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 text-[10px] font-bold uppercase whitespace-nowrap">
                                                                 <CreditCard size={10} />
                                                                 Paid / Active
                                                             </div>
@@ -395,7 +458,12 @@ function App() {
                                                 <td className="px-6 py-5">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => blockMutation.mutate({ domain: merchant.shopDomain, active: !merchant.isActive })}
+                                                            onClick={() => {
+                                                                const action = merchant.isActive ? 'block' : 'unblock';
+                                                                if (window.confirm(`Are you sure you want to ${action} the store ${merchant.storeName || merchant.shopDomain}?`)) {
+                                                                    blockMutation.mutate({ domain: merchant.shopDomain, active: !merchant.isActive });
+                                                                }
+                                                            }}
                                                             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all text-[10px] font-bold ${merchant.isActive
                                                                 ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white'
                                                                 : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white'
@@ -405,15 +473,35 @@ function App() {
                                                             {merchant.isActive ? <><Ban size={14} /> <span>BLOCK</span></> : <><UserCheck size={14} /> <span>UNBLOCK</span></>}
                                                         </button>
                                                         <button
-                                                            onClick={() => extendMutation.mutate({ domain: merchant.shopDomain, amount: 50 })}
-                                                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all text-[10px] font-bold"
-                                                            title="Extend Trial +50"
+                                                            onClick={() => {
+                                                                const amountStr = window.prompt(`How many messages do you want to extend for ${merchant.storeName || merchant.shopDomain}?`, "50");
+                                                                if (amountStr !== null) {
+                                                                    const amount = parseInt(amountStr, 10);
+                                                                    if (!isNaN(amount) && amount > 0) {
+                                                                        extendMutation.mutate({ domain: merchant.shopDomain, amount });
+                                                                    } else {
+                                                                        alert("Please enter a valid positive number.");
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all text-[10px] font-bold"
+                                                            title="Extend Trial"
                                                         >
                                                             <PlusCircle size={14} />
                                                             <span>EXTEND</span>
                                                         </button>
                                                         <button
-                                                            onClick={() => planMutation.mutate({ domain: merchant.shopDomain, plan: merchant.plan === 'pro' ? 'free' : 'pro' })}
+                                                            onClick={() => {
+                                                                const newPlan = window.prompt(`Which package do you want to switch ${merchant.storeName || merchant.shopDomain} to?\nOptions: free, starter, growth, professional`, merchant.plan || "free");
+                                                                if (newPlan !== null) {
+                                                                    const cleanedPlan = newPlan.trim().toLowerCase();
+                                                                    if (['free', 'starter', 'growth', 'professional', 'pro', 'trial'].includes(cleanedPlan)) {
+                                                                        planMutation.mutate({ domain: merchant.shopDomain, plan: cleanedPlan });
+                                                                    } else {
+                                                                        alert("Invalid plan! Please enter one of the following: free, starter, growth, professional");
+                                                                    }
+                                                                }
+                                                            }}
                                                             className="flex items-center gap-1.5 px-3 py-2 bg-[#1e293b] border border-slate-700 text-slate-400 rounded-xl hover:text-white hover:border-slate-500 transition-all font-bold text-[10px]"
                                                             title="Switch Plan"
                                                         >
@@ -422,7 +510,7 @@ function App() {
                                                         </button>
                                                         <button
                                                             onClick={() => {
-                                                                if (window.confirm(`Are you sure you want to cancel the subscription for ${merchant.shopDomain}? This will force them to re-activate a plan.`)) {
+                                                                if (window.confirm(`Are you sure you want to cancel the subscription for ${merchant.storeName || merchant.shopDomain}?`)) {
                                                                     cancelSubscriptionMutation.mutate({ domain: merchant.shopDomain });
                                                                 }
                                                             }}
@@ -434,7 +522,7 @@ function App() {
                                                         </button>
                                                         <button
                                                             onClick={() => {
-                                                                if (window.confirm(`⚠️ NUCLEAR ACTION: Are you sure you want to PERMANENTLY DELETE all data for ${merchant.shopDomain}? This cannot be undone.`)) {
+                                                                if (window.confirm(`Are you sure you want to delete the store ${merchant.storeName || merchant.shopDomain} permanently? This cannot be undone.`)) {
                                                                     deleteStoreMutation.mutate({ domain: merchant.shopDomain });
                                                                 }
                                                             }}
@@ -460,26 +548,26 @@ function App() {
                                     <Activity size={48} />
                                 </div>
                                 <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                    <Activity size={18} className="text-blue-400" />
+                                    <Activity size={18} className="text-green-400" />
                                     Live Network Pulse
                                 </h3>
                                 <div className="space-y-4 max-h-[300px] overflow-y-auto scrollbar-hide">
                                     {activityLogs?.map((log: any, i: number) => (
                                         <div key={i} className="flex gap-3 text-xs border-l-2 border-slate-800 pl-4 py-1">
                                             <span className="text-slate-500 font-mono shrink-0">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            <span className="text-blue-400 font-bold shrink-0">{log.customerName || 'Cust'}</span>
+                                            <span className="text-green-400 font-bold shrink-0">{log.customerName || 'Cust'}</span>
                                             <span className="text-slate-400 truncate italic">"{log.message}"</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="bg-gradient-to-br from-indigo-500/10 to-blue-500/10 border border-blue-500/20 rounded-3xl p-8 flex flex-col justify-center">
-                                <h4 className="text-blue-300 font-bold text-lg mb-2 tracking-tight">System Status: Shield Active</h4>
+                            <div className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-green-500/20 rounded-3xl p-8 flex flex-col justify-center">
+                                <h4 className="text-green-300 font-bold text-lg mb-2 tracking-tight">System Status: Shield Active</h4>
                                 <p className="text-slate-400 text-sm leading-relaxed mb-6">
                                     All traffic is currently monitored. You can manually override merchant settings, block access, or rotate service packages from this panel.
                                 </p>
                                 <div className="flex gap-4">
-                                    <div className="px-4 py-2 bg-blue-500/20 rounded-xl border border-blue-500/30 text-blue-300 text-xs font-bold">
+                                    <div className="px-4 py-2 bg-green-500/20 rounded-xl border border-green-500/30 text-green-300 text-xs font-bold">
                                         AUTH SECURED
                                     </div>
                                     <div className="px-4 py-2 bg-green-500/20 rounded-xl border border-green-500/30 text-green-300 text-xs font-bold">
@@ -509,7 +597,7 @@ function App() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 relative overflow-hidden group">
                                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-all">
-                                            <UserCheck size={64} className="text-blue-500" />
+                                            <UserCheck size={64} className="text-green-500" />
                                         </div>
                                         <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Total Subscribed Users</p>
                                         <h2 className="text-5xl font-bold text-white tracking-tighter">{stats?.totalSubscribers || 0}</h2>
@@ -548,7 +636,7 @@ function App() {
                                 <div className="bg-[#0f172a] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
                                     <div className="px-8 py-6 border-b border-slate-800 flex justify-between items-center">
                                         <h3 className="text-white font-bold flex items-center gap-2 text-lg">
-                                            <Users size={20} className="text-blue-500" />
+                                            <Users size={20} className="text-green-500" />
                                             Subscriber Breakdown
                                         </h3>
                                     </div>
@@ -584,9 +672,9 @@ function App() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {plans?.map((plan: any) => (
-                                    <div key={plan.id} className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 relative group hover:border-blue-500/30 transition-all">
+                                    <div key={plan.id} className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 relative group hover:border-green-500/30 transition-all">
                                         <div className="flex justify-between items-start mb-4">
-                                            <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400">
+                                            <div className="p-3 bg-green-500/10 rounded-2xl text-green-400">
                                                 <Package size={24} />
                                             </div>
                                             <button
@@ -599,7 +687,7 @@ function App() {
 
                                         <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
                                         <div className="flex items-baseline gap-1 mb-4">
-                                            <span className="text-2xl font-bold text-blue-400">${plan.price}</span>
+                                            <span className="text-2xl font-bold text-green-400">${plan.price}</span>
                                             <span className="text-slate-500 text-sm">/mo</span>
                                         </div>
 
@@ -669,7 +757,7 @@ function App() {
                                         <button onClick={() => setEditingPlan(null)} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-800">Cancel</button>
                                         <button
                                             onClick={() => updatePlanMutation.mutate({ id: editingPlan.id, updates: editingPlan })}
-                                            className="px-6 py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20"
+                                            className="px-6 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-500/20"
                                         >
                                             {updatePlanMutation.isPending ? 'Saving...' : 'Save Changes'}
                                         </button>
@@ -691,7 +779,7 @@ function App() {
                             {/* Create Broadcast Form */}
                             <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl">
                                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                    <MessageSquare size={20} className="text-blue-500" />
+                                    <MessageSquare size={20} className="text-green-500" />
                                     New Global Announcement
                                 </h3>
                                 <div className="space-y-5">
@@ -735,7 +823,7 @@ function App() {
                                                     type: broadcastType
                                                 })}
                                                 disabled={!broadcastTitle || !broadcastMessage || sendBroadcastMutation.isPending}
-                                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 {sendBroadcastMutation.isPending ? 'Sending...' : 'Broadcast Now'}
                                             </button>
@@ -747,7 +835,7 @@ function App() {
                             {/* Active Broadcasts History */}
                             <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl">
                                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                    <Activity size={20} className="text-blue-500" />
+                                    <Activity size={20} className="text-green-500" />
                                     Broadcast History
                                 </h3>
                                 <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
@@ -761,7 +849,7 @@ function App() {
                                                 <Trash2 size={16} />
                                             </button>
                                             <div className="flex items-center gap-2 mb-2">
-                                                <div className={`w-2 h-2 rounded-full ${msg.type === 'info' ? 'bg-blue-500' : msg.type === 'warning' ? 'bg-amber-500' : msg.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                <div className={`w-2 h-2 rounded-full ${msg.type === 'info' ? 'bg-green-500' : msg.type === 'warning' ? 'bg-amber-500' : msg.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
                                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{msg.type}</span>
                                                 <span className="text-[10px] text-slate-600 font-mono ml-auto">{new Date(msg.createdAt).toLocaleDateString()}</span>
                                             </div>
@@ -769,6 +857,153 @@ function App() {
                                             <p className="text-slate-400 text-xs leading-relaxed">{msg.message}</p>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {currentView === 'support' && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <div>
+                                <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Help & Support</h1>
+                                <p className="text-slate-400 text-sm italic">Manage merchant queries and support tickets, or configure admin security.</p>
+                            </div>
+                        </header>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            {/* Tickets List - 2 cols width */}
+                            <div className="lg:col-span-2 space-y-6">
+                                <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                                    <div className="flex justify-between items-center mb-6 border-b border-slate-800/50 pb-4">
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setTicketTab('open')}
+                                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${ticketTab === 'open' ? 'bg-green-600 text-white' : 'bg-[#1e293b] text-slate-400 hover:text-white'}`}
+                                            >
+                                                Open Tickets
+                                            </button>
+                                            <button
+                                                onClick={() => setTicketTab('closed')}
+                                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${ticketTab === 'closed' ? 'bg-green-600 text-white' : 'bg-[#1e293b] text-slate-400 hover:text-white'}`}
+                                            >
+                                                Closed Tickets
+                                            </button>
+                                        </div>
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                            {tickets?.filter((t: any) => t.status === (ticketTab === 'open' ? 'open' : 'closed')).length || 0} Tickets
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
+                                        {(tickets?.filter((t: any) => t.status === (ticketTab === 'open' ? 'open' : 'closed')).length || 0) === 0 ? (
+                                            <p className="text-slate-500 italic text-center py-12">No {ticketTab} support tickets found.</p>
+                                        ) : (
+                                            tickets?.filter((t: any) => t.status === (ticketTab === 'open' ? 'open' : 'closed')).map((ticket: any) => (
+                                                <div key={ticket._id} className="p-5 bg-[#1e293b]/20 border border-slate-800 rounded-2xl relative group hover:border-slate-700 transition-all">
+                                                    <div className="flex flex-wrap gap-2 items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-bold text-white">{ticket.name}</span>
+                                                            <span className="text-xs text-slate-500">({ticket.email})</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[10px] font-mono text-slate-600">
+                                                            <span>{new Date(ticket.createdAt).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="text-slate-300 text-xs leading-relaxed bg-[#0f172a]/50 p-3 rounded-xl mb-4 italic">
+                                                        "{ticket.message}"
+                                                    </p>
+
+                                                    <div className="flex justify-between items-center">
+                                                        {ticket.shopDomain ? (
+                                                            <a href={`https://${ticket.shopDomain}`} target="_blank" className="text-[10px] text-green-400 hover:underline font-mono">
+                                                                🌐 {ticket.shopDomain}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-[10px] text-slate-600">No store linked</span>
+                                                        )}
+
+                                                        {ticketTab === 'open' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (window.confirm(`Mark query from ${ticket.name} as Solved?`)) {
+                                                                        resolveTicketMutation.mutate(ticket._id);
+                                                                    }
+                                                                }}
+                                                                className="px-3 py-1.5 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all text-[10px] font-bold"
+                                                            >
+                                                                ✔ Mark Solved
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Security / Password Change - 1 col width */}
+                            <div className="space-y-6">
+                                <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                        <Lock size={18} className="text-green-500" />
+                                        Update Credentials
+                                    </h3>
+                                    <form onSubmit={handleChangePassword} className="space-y-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Current Password</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 outline-none text-xs"
+                                                value={currentPassword}
+                                                onChange={e => setCurrentPassword(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">New Password</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 outline-none text-xs"
+                                                value={newPassword}
+                                                onChange={e => setNewPassword(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confirm New Password</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                className="w-full bg-[#1e293b] border border-slate-700 rounded-xl p-3 text-white mt-1 outline-none text-xs"
+                                                value={confirmPassword}
+                                                onChange={e => setConfirmPassword(e.target.value)}
+                                            />
+                                        </div>
+
+                                        {passwordError && (
+                                            <p className="text-red-400 text-xs bg-red-500/10 py-2 px-3 rounded-lg text-center font-medium">
+                                                {passwordError}
+                                            </p>
+                                        )}
+
+                                        {passwordSuccess && (
+                                            <p className="text-green-400 text-xs bg-green-500/10 py-2 px-3 rounded-lg text-center font-medium">
+                                                {passwordSuccess}
+                                            </p>
+                                        )}
+
+                                        <button
+                                            type="submit"
+                                            disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 disabled:opacity-50 text-xs"
+                                        >
+                                            {isChangingPassword ? 'Updating...' : 'Save Password'}
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         </div>
