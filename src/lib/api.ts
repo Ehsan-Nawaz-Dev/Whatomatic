@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Switch between local admin backend (5001) and production backend
-const IS_PRODUCTION = true;
+// Switch between local admin backend (5000) and production backend dynamically
+const IS_PRODUCTION = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 const PROD_URL = "https://api.whatomatic.com/api";
 const LOCAL_URL = "http://localhost:5000/api";
 
